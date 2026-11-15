@@ -1,0 +1,11 @@
+id: groq_voice_to_text
+name: Groq Voice to Text
+description: "Перехватывает голосовые сообщения (ГС), отправляет их в Groq Whisper API через отдельное кратковременное HTTP-соединение и шлёт распознанный текст в тот же чат ответом на исходное сообщение."
+author: "@Quenby03"
+version: "1.0.0"
+icon: exteraPlugins/1
+app_version: ">=12.5.1"
+sdk_version: ">=1.4.4.3"
+category:
+  - media
+  - tools
