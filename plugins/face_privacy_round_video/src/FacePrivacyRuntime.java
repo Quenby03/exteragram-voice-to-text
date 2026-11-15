@@ -66,8 +66,23 @@ public final class FacePrivacyRuntime {
             throw new UnsatisfiedLinkError("ONNX native library file is missing: "
                     + runtimeLibrary.getAbsolutePath() + " / " + jniLibrary.getAbsolutePath());
         }
-        System.load(runtimeLibrary.getAbsolutePath());
-        System.load(jniLibrary.getAbsolutePath());
+        System.setProperty("onnxruntime.native.path", runtimeLibrary.getParent());
+        try {
+            System.load(runtimeLibrary.getAbsolutePath());
+        } catch (UnsatisfiedLinkError e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("already opened")) {
+                throw e;
+            }
+        }
+        try {
+            System.load(jniLibrary.getAbsolutePath());
+        } catch (UnsatisfiedLinkError e) {
+            String msg = e.getMessage();
+            if (msg == null || !msg.contains("already opened")) {
+                throw e;
+            }
+        }
         nativeLibrariesLoaded = true;
         return "ONNX native libraries loaded from plugin storage";
     }

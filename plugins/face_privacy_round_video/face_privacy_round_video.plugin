@@ -19,7 +19,7 @@ __id__ = "face_privacy_round_video"
 __name__ = "Face Privacy — Кружки"
 __description__ = "Локально маскирует лица в исходящих видеокружках exteraGram."
 __author__ = "Maduro"
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 __icon__ = "exteraPlugins/1"
 __app_version__ = ">=12.5.1"
 __sdk_version__ = ">=1.4.4.3"
@@ -32,7 +32,7 @@ DEFAULT_ASSETS_BASE_URL = (
 
 # Updated by the packaging step after the model and Android runtime are finalized.
 ASSET_SHA256 = {
-    "faceprivacy-runtime.jar": "071230F6E8CA939E283D715CD0FF7130F11E2EA2790082E8277F24040609CA30",
+    "faceprivacy-runtime.jar": "2F8B325725E92108FA1487825AF0CF8966AD4056BD65474ED719A9B26E5C149E",
     "libonnxruntime.so": "8005A741E57117B4D7B476417706C0E9AF13CF1B89DB47E60F0CBC56E1AF91E0",
     "libonnxruntime4j_jni.so": "5F2F1A99FD9F65FD6271EED825632F4AE5ADA95F5CC13D66605888CCB80CDC29",
     "yolov11n-face.onnx": "44F6C3EC27061DC61D32529708CF3FDDD99BC39191551AA6EB3EC00EB50C6BA0",
@@ -383,6 +383,22 @@ class FacePrivacyRoundVideoPlugin(BasePlugin):
         if not optimized.exists() and not optimized.mkdirs():
             raise RuntimeError("Не удалось подготовить каталог DexClassLoader")
 
+        JavaString = jclass("java.lang.String")
+        JavaSystem = jclass("java.lang.System")
+        JavaSystem.setProperty(JavaString("onnxruntime.native.path"), JavaString(native_dir))
+
+        props = JavaSystem.getProperties()
+        cached_loader = props.get("face_privacy_dex_loader")
+        if cached_loader is not None:
+            try:
+                runtime_class = cached_loader.loadClass("com.maduro.faceprivacy.FacePrivacyRuntime")
+                self._runtime_loader = cached_loader
+                self._runtime_class = runtime_class
+                self._model_path = model_path
+                return self._runtime_class, self._model_path
+            except Exception:
+                pass
+
         DexClassLoader = jclass("dalvik.system.DexClassLoader")
         self._runtime_loader = DexClassLoader(
             runtime_path,
@@ -390,10 +406,10 @@ class FacePrivacyRoundVideoPlugin(BasePlugin):
             native_dir,
             context.getClassLoader(),
         )
+        props.put("face_privacy_dex_loader", self._runtime_loader)
         runtime_class = self._runtime_loader.loadClass("com.maduro.faceprivacy.FacePrivacyRuntime")
         # Preload the ONNX dependency and JNI shim by absolute path. Loading
         # from this class keeps both libraries in the same DexClassLoader as ORT.
-        JavaString = jclass("java.lang.String")
         Object = jclass("java.lang.Object")
         string_class = self._runtime_loader.loadClass("java.lang.String")
         load_method = runtime_class.getMethod(
