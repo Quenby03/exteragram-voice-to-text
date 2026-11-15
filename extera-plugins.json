@@ -6,25 +6,6 @@
   "homepage": "https://github.com/Quenby03/exteragram-voice-to-text",
   "plugins": [
     {
-      "id": "face_privacy_round_video",
-      "name": "Face Privacy — Кружки",
-      "description": "Локально маскирует лица в исходящих видеокружках exteraGram.",
-      "author": "Maduro",
-      "version": "1.0.0",
-      "icon": "exteraPlugins/1",
-      "app_version": ">=12.5.1",
-      "sdk_version": ">=1.4.4.3",
-      "category": [
-        "media",
-        "privacy",
-        "tools"
-      ],
-      "file": "plugins/face_privacy_round_video/face_privacy_round_video.plugin",
-      "sha256": "e874ee15b07bc1f7b24486a61333a2da695b8f62650353503eca0ab3ada2deb5",
-      "size": 23329,
-      "updated_at": "2026-11-15T13:26:13Z"
-    },
-    {
       "id": "groq_voice_to_text",
       "name": "Groq Voice to Text",
       "description": "Перехватывает голосовые сообщения (ГС), отправляет их в Groq Whisper API через отдельное кратковременное HTTP-соединение и шлёт распознанный текст в тот же чат ответом на исходное сообщение.",
@@ -41,6 +22,25 @@
       "sha256": "1676ad792d5911580172a55232589b9385cad151721be24c28f7179e88dee3c9",
       "size": 17111,
       "updated_at": "2026-11-15T09:12:37Z"
+    },
+    {
+      "id": "face_privacy_round_video",
+      "name": "Face Privacy — Кружки",
+      "description": "Локально маскирует лица в исходящих видеокружках exteraGram.",
+      "author": "Maduro",
+      "version": "1.0.1",
+      "icon": "exteraPlugins/1",
+      "app_version": ">=12.5.1",
+      "sdk_version": ">=1.4.4.3",
+      "category": [
+        "media",
+        "privacy",
+        "tools"
+      ],
+      "file": "plugins/face_privacy_round_video/face_privacy_round_video.plugin",
+      "sha256": "f505be610d4346a05e129503c4fce252b90a18dc4756a9910c598e67052c2b13",
+      "size": 23329,
+      "updated_at": "2026-11-15T13:29:38Z"
     }
   ]
 }
