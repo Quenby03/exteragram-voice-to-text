@@ -10,7 +10,7 @@
       "name": "Face Privacy — Кружки",
       "description": "Локально маскирует лица в исходящих видеокружках exteraGram.",
       "author": "Maduro",
-      "version": "1.0.2",
+      "version": "1.0.3",
       "icon": "exteraPlugins/1",
       "app_version": ">=12.5.1",
       "sdk_version": ">=1.4.4.3",
@@ -20,9 +20,9 @@
         "tools"
       ],
       "file": "plugins/face_privacy_round_video/face_privacy_round_video.plugin",
-      "sha256": "f1452821dc2b0157290d8f09dcfbdfb3177d7fd41898e80132de4dbcfc1c1d40",
-      "size": 24244,
-      "updated_at": "2026-11-15T13:45:43Z"
+      "sha256": "df75805651c7e8bfaf6b85fee27f28bcadbe61dbf4cbcd487c70690b9976295d",
+      "size": 24941,
+      "updated_at": "2026-11-15T14:19:42Z"
     },
     {
       "id": "groq_voice_to_text",
