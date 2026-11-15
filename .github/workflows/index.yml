@@ -3,7 +3,10 @@ name: Update plugin index
 on:
   push:
     branches: [main]
-    paths: ["groq_voice_to_text.py", "build_index.py"]
+    paths:
+      - "groq_voice_to_text.py"
+      - "plugins/**"
+      - "build_index.py"
 
 permissions:
   contents: write
@@ -20,6 +23,6 @@ jobs:
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add extera-plugins.json
+          git add plugins/groq_voice_to_text/groq_voice_to_text.plugin extera-plugins.json
           git diff --cached --quiet || git commit -m "chore: update plugin index"
           git push

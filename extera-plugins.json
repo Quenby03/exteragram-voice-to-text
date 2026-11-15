@@ -18,7 +18,7 @@
         "media",
         "tools"
       ],
-      "file": "groq_voice_to_text.py",
+      "file": "plugins/groq_voice_to_text/groq_voice_to_text.plugin",
       "sha256": "1676ad792d5911580172a55232589b9385cad151721be24c28f7179e88dee3c9",
       "size": 17111,
       "updated_at": "2026-11-15T09:12:37Z"
