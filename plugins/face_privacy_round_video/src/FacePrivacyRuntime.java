@@ -71,17 +71,19 @@ public final class FacePrivacyRuntime {
             System.load(runtimeLibrary.getAbsolutePath());
         } catch (UnsatisfiedLinkError e) {
             String msg = e.getMessage();
-            if (msg == null || !msg.contains("already opened")) {
-                throw e;
+            if (msg != null && (msg.contains("already opened") || msg.contains("Shared library"))) {
+                throw new UnsatisfiedLinkError("RESTART_REQUIRED: Библиотека ONNX Runtime привязана к предыдущему ClassLoader процесса. Перезапустите exteraGram (смахните из недавних).");
             }
+            throw e;
         }
         try {
             System.load(jniLibrary.getAbsolutePath());
         } catch (UnsatisfiedLinkError e) {
             String msg = e.getMessage();
-            if (msg == null || !msg.contains("already opened")) {
-                throw e;
+            if (msg != null && (msg.contains("already opened") || msg.contains("Shared library"))) {
+                throw new UnsatisfiedLinkError("RESTART_REQUIRED: Библиотека ONNX JNI привязана к предыдущему ClassLoader процесса. Перезапустите exteraGram (смахните из недавних).");
             }
+            throw e;
         }
         nativeLibrariesLoaded = true;
         return "ONNX native libraries loaded from plugin storage";
