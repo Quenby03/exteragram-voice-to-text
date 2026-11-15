@@ -1,6 +1,6 @@
 # Maduro exteraGram Plugins
 
-Коллекция плагинов для exteraGram от Maduro. Сейчас доступен плагин Groq Whisper Voice to Text.
+Коллекция плагинов для exteraGram от Maduro. Доступны плагины Groq Voice to Text и Face Privacy — Кружки.
 
 ## Groq Whisper Voice to Text
 
@@ -54,8 +54,8 @@
 1. В exteraGram перейдите в **Настройки -> Плагины -> Каталог плагинов**.
 2. Нажмите **+ Добавить репозиторий -> Git-репозиторий**.
 3. Вставьте ссылку на репозиторий:
-   `https://github.com/Quenby03/maduro-exteragram-plugins`
-   *(Или откройте прямую ссылку: [Добавить в exteraGram](https://t.me/exteraPluginRepo?git=https%3A%2F%2Fgithub.com%2FQuenby03%2Fmaduro-exteragram-plugins))*
+   `https://github.com/Quenby03/exteragram-voice-to-text`
+   *(Или откройте прямую ссылку: [Добавить в exteraGram](https://t.me/exteraPluginRepo?git=https%3A%2F%2Fgithub.com%2FQuenby03%2Fexteragram-voice-to-text))*
 4. Нажмите **Установить** на карточке плагина.
 
 ### Способ 2: Отправка файла в Telegram
@@ -79,3 +79,10 @@
 - **Plugin SDK**: `>= 1.4.4.3`
 - **Python**: `3.11` (встроен в exteraGram Chaquopy)
 - Дополнительные библиотеки `pip` не требуются (используются встроенные модули Python `http.client`, `ssl`, `json`, `uuid`).
+## Face Privacy — Кружки
+
+Плагин для локальной маскировки лиц в исходящих видеокружках. Он использует YOLOv11n, отслеживание рамок между кадрами и маску, удерживаемую до 15 кадров. Доступны пикселизация, размытие и сплошная маска. ONNX Runtime запускается через Android NNAPI с CPU fallback; видеокадры остаются на устройстве.
+
+При первом использовании загружаются runtime и модель (около 43 MiB) из каталога assets репозитория, затем проверяются SHA-256. Обработанное видео сохраняет разрешение, временные метки и исходную аудиодорожку, но перекодируется в H.264. Ошибка обработки блокирует отправку исходного кружка.
+
+Подробности, ограничения и настройки: [README плагина](plugins/face_privacy_round_video/README.md).

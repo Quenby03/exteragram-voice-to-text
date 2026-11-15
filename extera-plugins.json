@@ -3,7 +3,7 @@
   "name": "Maduro exteraGram Plugins",
   "description": "Коллекция плагинов для exteraGram от Maduro.",
   "author": "@Quenby03",
-  "homepage": "https://github.com/Quenby03/maduro-exteragram-plugins",
+  "homepage": "https://github.com/Quenby03/exteragram-voice-to-text",
   "plugins": [
     {
       "id": "groq_voice_to_text",
@@ -22,6 +22,25 @@
       "sha256": "1676ad792d5911580172a55232589b9385cad151721be24c28f7179e88dee3c9",
       "size": 17111,
       "updated_at": "2026-11-15T09:12:37Z"
+    },
+    {
+      "id": "face_privacy_round_video",
+      "name": "Face Privacy — Кружки",
+      "description": "Локально маскирует лица в исходящих видеокружках exteraGram.",
+      "author": "Maduro",
+      "version": "1.0.0",
+      "icon": "exteraPlugins/1",
+      "app_version": ">=12.5.1",
+      "sdk_version": ">=1.4.4.3",
+      "category": [
+        "media",
+        "privacy",
+        "tools"
+      ],
+      "file": "plugins/face_privacy_round_video/face_privacy_round_video.plugin",
+      "sha256": "6d120d201901ac0dee855c13dccee34c375f95ebefaafa5ff847ae4e3889d375",
+      "size": 23256,
+      "updated_at": "2026-11-15T12:18:58Z"
     }
   ]
 }

@@ -1,0 +1,512 @@
+import json
+import hashlib
+import ssl
+import os
+import threading
+import urllib.request
+import uuid
+from typing import Any, List, Optional
+
+from base_plugin import BasePlugin, HookResult, HookStrategy
+from client_utils import run_on_queue
+from java import jarray, jclass
+from org.telegram.messenger import ApplicationLoader
+from ui.bulletin import BulletinHelper
+from ui.settings import Divider, Header, Input, Switch, Text
+
+
+__id__ = "face_privacy_round_video"
+__name__ = "Face Privacy — Кружки"
+__description__ = "Локально маскирует лица в исходящих видеокружках exteraGram."
+__author__ = "Maduro"
+__version__ = "1.0.0"
+__icon__ = "exteraPlugins/1"
+__app_version__ = ">=12.5.1"
+__sdk_version__ = ">=1.4.4.3"
+__category__ = ["media", "privacy", "tools"]
+
+DEFAULT_ASSETS_BASE_URL = (
+    "https://raw.githubusercontent.com/Quenby03/exteragram-voice-to-text/main/"
+    "plugins/face_privacy_round_video/assets"
+)
+
+# Updated by the packaging step after the model and Android runtime are finalized.
+ASSET_SHA256 = {
+    "faceprivacy-runtime.jar": "8796B0DA35107644BBE2C3743E6C6A68143BCA0B143D868658BB359F16A84D82",
+    "libonnxruntime.so": "8005A741E57117B4D7B476417706C0E9AF13CF1B89DB47E60F0CBC56E1AF91E0",
+    "libonnxruntime4j_jni.so": "5F2F1A99FD9F65FD6271EED825632F4AE5ADA95F5CC13D66605888CCB80CDC29",
+    "yolov11n-face.onnx": "44F6C3EC27061DC61D32529708CF3FDDD99BC39191551AA6EB3EC00EB50C6BA0",
+}
+
+
+class FacePrivacyRoundVideoPlugin(BasePlugin):
+    """Fail-closed, fully local processing for outgoing round videos."""
+
+    def on_plugin_load(self):
+        self._pending = set()
+        self._pending_lock = threading.RLock()
+        self._runtime_loader = None
+        self._runtime_class = None
+        self.add_on_send_message_hook(priority=100)
+        self.logger.info("Face Privacy for Round Videos loaded")
+
+    def on_plugin_unload(self):
+        self.logger.info("Face Privacy for Round Videos unloaded")
+
+    def create_settings(self) -> List[Any]:
+        return [
+            Header(text="Защита лица в видеокружках"),
+            Switch(
+                key="enabled",
+                text="Обрабатывать исходящие кружки",
+                subtext="Видео сначала обрабатывается на устройстве и только потом отправляется",
+                default=True,
+                icon="msg_video",
+            ),
+            Input(
+                key="mode",
+                text="Режим маски",
+                subtext="pixelate, blur или solid",
+                default="pixelate",
+                icon="msg_settings",
+            ),
+            Input(
+                key="detect_every",
+                text="Частота распознавания",
+                subtext="Каждый N-й кадр; 2 = каждый второй кадр",
+                default="2",
+                icon="msg_settings",
+            ),
+            Input(
+                key="confidence",
+                text="Порог уверенности YOLO",
+                subtext="Число от 0.05 до 0.95; значение по умолчанию 0.35",
+                default="0.35",
+                icon="msg_settings",
+            ),
+            Input(
+                key="nms_iou",
+                text="Подавление дубликатов рамок",
+                subtext="IoU от 0.05 до 0.95; по умолчанию 0.45",
+                default="0.45",
+                icon="msg_settings",
+            ),
+            Input(
+                key="padding_percent",
+                text="Запас вокруг лица (%)",
+                subtext="Маска расширяется вокруг найденной рамки",
+                default="25",
+                icon="msg_settings",
+            ),
+            Input(
+                key="hold_frames",
+                text="Удерживать маску (кадры)",
+                subtext="По умолчанию 15 кадров после последнего обнаружения",
+                default="15",
+                icon="msg_settings",
+            ),
+            Input(
+                key="pixel_block",
+                text="Размер блока пикселизации",
+                subtext="5×5 оставляет около 4% исходных пикселей лица",
+                default="5",
+                icon="msg_settings",
+            ),
+            Input(
+                key="blur_radius",
+                text="Радиус размытия",
+                subtext="Используется в режиме blur, значение в пикселях",
+                default="16",
+                icon="msg_settings",
+            ),
+            Input(
+                key="mask_color",
+                text="Цвет полной маски",
+                subtext="HEX, например #000000 или #202020; режим solid",
+                default="#000000",
+                icon="msg_settings",
+            ),
+            Input(
+                key="bitrate_mbps",
+                text="Битрейт выходного видео (Мбит/с)",
+                subtext="0.4–12; размер и частота кадров сохраняются",
+                default="2.5",
+                icon="msg_settings",
+            ),
+            Switch(
+                key="nnapi",
+                text="Ускорение через Android NNAPI",
+                subtext="Для Pixel 9 Pro; при недоступности используется CPU",
+                default=True,
+                icon="msg_settings",
+            ),
+            Input(
+                key="cpu_threads",
+                text="Потоки CPU",
+                subtext="1–4; рекомендуемое значение 2",
+                default="2",
+                icon="msg_settings",
+            ),
+            Input(
+                key="assets_base_url",
+                text="Адрес папки с локальными файлами",
+                subtext="Используется один раз для загрузки ONNX-модели и arm64-рантайма",
+                default=DEFAULT_ASSETS_BASE_URL,
+                icon="msg_settings",
+            ),
+            Switch(
+                key="android_fallback",
+                text="Системный резервный детектор",
+                subtext="Запускается, если YOLO не нашла лицо в кадре",
+                default=True,
+                icon="msg_settings",
+            ),
+            Divider(text="Конфиденциальность"),
+            Text(
+                text="Обработка остаётся на устройстве",
+                subtext=(
+                    "После однократной загрузки файлов кадры обрабатываются на устройстве. "
+                    "Видео не отправляется во внешние сервисы. При ошибке исходный кружок "
+                    "не отправляется без маски."
+                ),
+                icon="msg_info",
+            ),
+        ]
+
+    def on_send_message_hook(self, account: int, params: Any) -> HookResult:
+        if not self.get_setting("enabled", True):
+            return HookResult()
+        if not self._is_round_video(params):
+            return HookResult()
+
+        path = self._get_media_path(params)
+        if not path:
+            BulletinHelper.show_error(
+                "Face Privacy: не удалось получить файл кружка; отправка отменена ради приватности."
+            )
+            return HookResult(strategy=HookStrategy.CANCEL)
+
+        if "faceprivacy_" in os.path.basename(path).lower():
+            return HookResult()
+
+        pending_key = f"{int(account)}:{path}"
+        with self._pending_lock:
+            if pending_key in self._pending:
+                return HookResult(strategy=HookStrategy.CANCEL)
+            self._pending.add(pending_key)
+
+        settings = self._read_settings()
+        BulletinHelper.show_info("Face Privacy: маскирую лица на устройстве…")
+        try:
+            run_on_queue(lambda: self._process_and_resend(account, params, path, pending_key, settings))
+        except Exception as error:
+            with self._pending_lock:
+                self._pending.discard(pending_key)
+            self.logger.error(f"Face Privacy could not queue processing: {error}")
+            BulletinHelper.show_error("Face Privacy: кружок не отправлен без маски — очередь недоступна.")
+        return HookResult(strategy=HookStrategy.CANCEL)
+
+    def _read_settings(self) -> dict:
+        mode = str(self.get_setting("mode", "pixelate")).strip().lower()
+        if mode in ("пикселизация", "мозаика", "mosaic"):
+            mode = "pixelate"
+        elif mode in ("размытие", "blurred"):
+            mode = "blur"
+        elif mode in ("замазать", "маска", "solid mask"):
+            mode = "solid"
+        if mode not in ("pixelate", "blur", "solid"):
+            mode = "pixelate"
+
+        bitrate_mbps = self._number("bitrate_mbps", 2.5, 0.4, 12.0)
+        return {
+            "mode": mode,
+            "detect_every": int(self._number("detect_every", 2, 1, 8)),
+            "confidence": self._number("confidence", 0.35, 0.05, 0.95),
+            "nms_iou": self._number("nms_iou", 0.45, 0.05, 0.95),
+            "padding_percent": self._number("padding_percent", 25, 0, 100),
+            "hold_frames": int(self._number("hold_frames", 15, 0, 120)),
+            "pixel_block": int(self._number("pixel_block", 5, 2, 64)),
+            "blur_radius": int(self._number("blur_radius", 16, 2, 80)),
+            "mask_color": str(self.get_setting("mask_color", "#000000")).strip() or "#000000",
+            "bitrate": int(bitrate_mbps * 1_000_000),
+            "nnapi": bool(self.get_setting("nnapi", True)),
+            "cpu_threads": int(self._number("cpu_threads", 2, 1, 4)),
+            "android_fallback": bool(self.get_setting("android_fallback", True)),
+        }
+
+    def _number(self, key: str, default: float, minimum: float, maximum: float) -> float:
+        try:
+            value = float(str(self.get_setting(key, default)).strip().replace(",", "."))
+        except Exception:
+            value = default
+        return max(minimum, min(maximum, value))
+
+    def _is_round_video(self, params: Any) -> bool:
+        if self._truth(self._read(params, "isRoundVideo", "roundVideo", "round_video", "is_round_video")):
+            return True
+        for name in ("videoEditedInfo", "video_edited_info", "videoInfo", "video_info"):
+            info = self._read(params, name)
+            if info is not None and self._truth(
+                self._read(info, "roundVideo", "isRoundVideo", "round_video", "is_round_video")
+            ):
+                return True
+        return False
+
+    def _get_media_path(self, params: Any) -> Optional[str]:
+        candidates = [
+            self._read(params, "path", "filePath", "videoPath", "originalPath"),
+        ]
+        for name in ("photoEntry", "photo", "videoEditedInfo", "video_edited_info"):
+            nested = self._read(params, name)
+            if nested is not None:
+                candidates.append(self._read(nested, "path", "filePath", "originalPath", "file"))
+        for candidate in candidates:
+            if candidate is None:
+                continue
+            try:
+                if hasattr(candidate, "getAbsolutePath"):
+                    candidate = candidate.getAbsolutePath()
+                value = str(candidate).strip()
+                if value and value.lower().endswith(".mp4"):
+                    return value
+            except Exception:
+                continue
+        return None
+
+    def _process_and_resend(self, account: int, params: Any, input_path: str,
+                            pending_key: str, settings: dict):
+        output_path = None
+        try:
+            context = ApplicationLoader.applicationContext
+            if context is None:
+                raise RuntimeError("Клиент ещё не подготовил Android-контекст")
+            cache_dir = str(context.getCacheDir().getAbsolutePath())
+            output_path = os.path.join(cache_dir, f"faceprivacy_{uuid.uuid4().hex}.mp4")
+
+            runtime, model_path = self._get_runtime_class(context)
+            payload = dict(settings)
+            payload.update({"input": input_path, "output": output_path, "model": model_path})
+            payload_json = json.dumps(payload, separators=(",", ":"))
+
+            JavaString = jclass("java.lang.String")
+            JavaClass = jclass("java.lang.Class")
+            Object = jclass("java.lang.Object")
+            method = runtime.getMethod("process", JavaString.class_)
+            arguments = jarray(Object)([JavaString(payload_json)])
+            result = method.invoke(None, arguments)
+            self.logger.info(f"Processed round video: {result}")
+
+            if not os.path.isfile(output_path) or os.path.getsize(output_path) <= 0:
+                raise RuntimeError("Рантайм не создал обработанное видео")
+
+            self._replace_media_paths(params, output_path)
+            self._resend_original_params(account, params)
+            BulletinHelper.show_info("Face Privacy: обработанный кружок отправлен")
+        except Exception as error:
+            if output_path and os.path.exists(output_path):
+                try:
+                    os.remove(output_path)
+                except Exception:
+                    pass
+            self.logger.error(f"Face Privacy failed; original remains unsent: {error}")
+            message = str(error).replace("\n", " ")
+            if len(message) > 110:
+                message = message[:107] + "..."
+            BulletinHelper.show_error(f"Face Privacy: кружок не отправлен без маски. {message}")
+        finally:
+            with self._pending_lock:
+                self._pending.discard(pending_key)
+
+    def _get_runtime_class(self, context: Any):
+        if self._runtime_class is not None:
+            return self._runtime_class, self._model_path
+
+        Build = jclass("android.os.Build")
+        supported = [str(abi) for abi in Build.SUPPORTED_ABIS]
+        if "arm64-v8a" not in supported:
+            raise RuntimeError("Этот пакет рантайма собран для arm64-v8a; Pixel 9 Pro поддерживается")
+
+        root = os.path.join(str(context.getFilesDir().getAbsolutePath()), "face_privacy_round_video")
+        os.makedirs(root, exist_ok=True)
+        base_url = str(self.get_setting("assets_base_url", DEFAULT_ASSETS_BASE_URL)).strip().rstrip("/")
+        if not base_url.startswith("https://"):
+            raise RuntimeError("Адрес файлов должен начинаться с https://")
+        files = self._ensure_runtime_assets(root, base_url)
+        runtime_path = files["faceprivacy-runtime.jar"]
+        model_path = files["yolov11n-face.onnx"]
+        native_path = files["libonnxruntime.so"]
+        jni_path = files["libonnxruntime4j_jni.so"]
+        native_dir = root
+
+        File = jclass("java.io.File")
+        runtime_file = File(runtime_path)
+        native_file = File(native_path)
+        jni_file = File(jni_path)
+        if not runtime_file.isFile() or not native_file.isFile() or not jni_file.isFile():
+            raise RuntimeError("Не загружен Java-рантайм или его arm64 библиотеки")
+        # Android 14+ requires dynamically loaded executable code to be read-only.
+        if not runtime_file.setReadOnly() or not native_file.setReadOnly() or not jni_file.setReadOnly():
+            raise RuntimeError("Не удалось защитить Java- и native-файлы перед загрузкой")
+
+        code_cache = str(context.getCodeCacheDir().getAbsolutePath())
+        optimized = File(code_cache, "face-privacy-dex")
+        if not optimized.exists() and not optimized.mkdirs():
+            raise RuntimeError("Не удалось подготовить каталог DexClassLoader")
+
+        DexClassLoader = jclass("dalvik.system.DexClassLoader")
+        self._runtime_loader = DexClassLoader(
+            runtime_path,
+            str(optimized.getAbsolutePath()),
+            native_dir,
+            context.getClassLoader(),
+        )
+        self._runtime_class = self._runtime_loader.loadClass("com.maduro.faceprivacy.FacePrivacyRuntime")
+        self._model_path = model_path
+        return self._runtime_class, model_path
+
+    def _ensure_runtime_assets(self, root: str, base_url: str) -> dict:
+        paths = {}
+        for filename, expected_hash in ASSET_SHA256.items():
+            if expected_hash == "TO_BE_FILLED":
+                raise RuntimeError("Не заданы контрольные суммы файлов рантайма")
+            target = os.path.join(root, filename)
+            if not self._has_valid_hash(target, expected_hash):
+                temp = target + ".download"
+                url = f"{base_url}/{filename}"
+                self.logger.info(f"Downloading local model/runtime asset: {filename}")
+                digest = hashlib.sha256()
+                try:
+                    context = ssl.create_default_context()
+                    with urllib.request.urlopen(url, timeout=300, context=context) as response, open(temp, "wb") as output:
+                        while True:
+                            chunk = response.read(1024 * 1024)
+                            if not chunk:
+                                break
+                            output.write(chunk)
+                            digest.update(chunk)
+                    if digest.hexdigest().lower() != expected_hash.lower():
+                        raise RuntimeError(f"SHA-256 не совпал для {filename}")
+                    os.replace(temp, target)
+                finally:
+                    if os.path.exists(temp):
+                        try:
+                            os.remove(temp)
+                        except Exception:
+                            pass
+            paths[filename] = target
+        return paths
+
+    @staticmethod
+    def _has_valid_hash(path: str, expected_hash: str) -> bool:
+        if not os.path.isfile(path):
+            return False
+        digest = hashlib.sha256()
+        try:
+            with open(path, "rb") as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                    digest.update(chunk)
+            return digest.hexdigest().lower() == expected_hash.lower()
+        except Exception:
+            return False
+
+    def _replace_media_paths(self, params: Any, output_path: str):
+        JavaString = jclass("java.lang.String")
+        JavaFile = jclass("java.io.File")
+        targets = [params]
+        for name in ("videoEditedInfo", "video_edited_info", "photoEntry", "photo", "videoInfo"):
+            nested = self._read(params, name)
+            if nested is not None:
+                targets.append(nested)
+
+        changed = False
+        for target in targets:
+            changed = self._set_field(target, "path", JavaString(output_path), JavaFile(output_path)) or changed
+            changed = self._set_field(target, "filePath", JavaString(output_path), JavaFile(output_path)) or changed
+            changed = self._set_field(target, "originalPath", JavaString(output_path), JavaFile(output_path)) or changed
+            self._set_estimated_size(target, os.path.getsize(output_path))
+        if not changed:
+            raise RuntimeError("Не удалось заменить путь видео в параметрах отправки")
+
+    def _set_field(self, target: Any, name: str, string_value: Any, file_value: Any) -> bool:
+        if target is None:
+            return False
+        try:
+            field = target.getClass().getDeclaredField(name)
+            field.setAccessible(True)
+            type_name = str(field.getType().getName())
+            if type_name == "java.io.File":
+                field.set(target, file_value)
+            elif type_name in ("java.lang.String", "java.lang.CharSequence"):
+                field.set(target, string_value)
+            else:
+                return False
+            return True
+        except Exception:
+            try:
+                setattr(target, name, string_value)
+                return True
+            except Exception:
+                return False
+
+    def _set_estimated_size(self, target: Any, size: int):
+        if target is None:
+            return
+        try:
+            field = target.getClass().getDeclaredField("estimatedSize")
+            field.setAccessible(True)
+            if str(field.getType().getName()) == "long":
+                field.setLong(target, int(size))
+            else:
+                field.set(target, int(size))
+        except Exception:
+            pass
+
+    def _resend_original_params(self, account: int, params: Any):
+        Helper = jclass("org.telegram.messenger.SendMessagesHelper")
+        helper = Helper.getInstance(int(account))
+        param_class = params.getClass()
+        Object = jclass("java.lang.Object")
+        args = jarray(Object)([params])
+
+        for method in helper.getClass().getMethods():
+            if str(method.getName()) not in ("sendMessage", "sendMessageInternal"):
+                continue
+            parameter_types = method.getParameterTypes()
+            if len(parameter_types) != 1:
+                continue
+            if parameter_types[0].isAssignableFrom(param_class):
+                method.invoke(helper, args)
+                return
+        raise RuntimeError("В этой версии клиента не найден низкоуровневый метод повторной отправки")
+
+    @staticmethod
+    def _read(obj: Any, *names: str) -> Any:
+        if obj is None:
+            return None
+        for name in names:
+            try:
+                value = getattr(obj, name)
+                if value is not None:
+                    return value
+            except Exception:
+                pass
+            for method_name in ("get" + name[0].upper() + name[1:], "is" + name[0].upper() + name[1:]):
+                try:
+                    method = getattr(obj, method_name)
+                    value = method()
+                    if value is not None:
+                        return value
+                except Exception:
+                    pass
+        return None
+
+    @staticmethod
+    def _truth(value: Any) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes")
+        try:
+            return bool(value)
+        except Exception:
+            return False
