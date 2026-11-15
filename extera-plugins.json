@@ -6,24 +6,6 @@
   "homepage": "https://github.com/Quenby03/exteragram-voice-to-text",
   "plugins": [
     {
-      "id": "groq_voice_to_text",
-      "name": "Groq Voice to Text",
-      "description": "Перехватывает голосовые сообщения (ГС), отправляет их в Groq Whisper API через отдельное кратковременное HTTP-соединение и шлёт распознанный текст в тот же чат ответом на исходное сообщение.",
-      "author": "@Quenby03",
-      "version": "1.0.0",
-      "icon": "exteraPlugins/1",
-      "app_version": ">=12.5.1",
-      "sdk_version": ">=1.4.4.3",
-      "category": [
-        "media",
-        "tools"
-      ],
-      "file": "plugins/groq_voice_to_text/groq_voice_to_text.plugin",
-      "sha256": "1676ad792d5911580172a55232589b9385cad151721be24c28f7179e88dee3c9",
-      "size": 17111,
-      "updated_at": "2026-11-15T09:12:37Z"
-    },
-    {
       "id": "face_privacy_round_video",
       "name": "Face Privacy — Кружки",
       "description": "Локально маскирует лица в исходящих видеокружках exteraGram.",
@@ -41,6 +23,24 @@
       "sha256": "6d120d201901ac0dee855c13dccee34c375f95ebefaafa5ff847ae4e3889d375",
       "size": 23256,
       "updated_at": "2026-11-15T12:18:58Z"
+    },
+    {
+      "id": "groq_voice_to_text",
+      "name": "Groq Voice to Text",
+      "description": "Перехватывает голосовые сообщения (ГС), отправляет их в Groq Whisper API через отдельное кратковременное HTTP-соединение и шлёт распознанный текст в тот же чат ответом на исходное сообщение.",
+      "author": "@Quenby03",
+      "version": "1.0.0",
+      "icon": "exteraPlugins/1",
+      "app_version": ">=12.5.1",
+      "sdk_version": ">=1.4.4.3",
+      "category": [
+        "media",
+        "tools"
+      ],
+      "file": "plugins/groq_voice_to_text/groq_voice_to_text.plugin",
+      "sha256": "1676ad792d5911580172a55232589b9385cad151721be24c28f7179e88dee3c9",
+      "size": 17111,
+      "updated_at": "2026-11-15T09:12:37Z"
     }
   ]
 }
