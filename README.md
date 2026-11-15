@@ -1,4 +1,8 @@
-# Groq Whisper Voice to Text — exteraGram Plugin
+# Maduro exteraGram Plugins
+
+Коллекция плагинов для exteraGram от Maduro. Сейчас доступен плагин Groq Whisper Voice to Text.
+
+## Groq Whisper Voice to Text
 
 Плагин для клиента **exteraGram**, который перехватывает записываемые голосовые сообщения (ГС), отправляет аудио в **Groq Whisper API** и отправляет распознанный текст в чат вместо аудиозаписи. Если голосовое сообщение записывалось в ответ на чьё-то сообщение, распознанный текст отправляется реплаем на то же сообщение.
 
@@ -50,8 +54,8 @@
 1. В exteraGram перейдите в **Настройки -> Плагины -> Каталог плагинов**.
 2. Нажмите **+ Добавить репозиторий -> Git-репозиторий**.
 3. Вставьте ссылку на репозиторий:
-   `https://github.com/Quenby03/exteragram-voice-to-text`
-   *(Или откройте прямую ссылку: [Добавить в exteraGram](https://t.me/exteraPluginRepo?git=https%3A%2F%2Fgithub.com%2FQuenby03%2Fexteragram-voice-to-text))*
+   `https://github.com/Quenby03/maduro-exteragram-plugins`
+   *(Или откройте прямую ссылку: [Добавить в exteraGram](https://t.me/exteraPluginRepo?git=https%3A%2F%2Fgithub.com%2FQuenby03%2Fmaduro-exteragram-plugins))*
 4. Нажмите **Установить** на карточке плагина.
 
 ### Способ 2: Отправка файла в Telegram

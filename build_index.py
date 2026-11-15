@@ -13,10 +13,10 @@ INDEX_FILE = ROOT / "extera-plugins.json"
 
 REPOSITORY = {
     "schema": 1,
-    "name": "Groq Voice to Text",
-    "description": "Плагин exteraGram для преобразования голосовых сообщений (ГС) в текст через Groq Whisper API",
+    "name": "Maduro exteraGram Plugins",
+    "description": "Коллекция плагинов для exteraGram от Maduro.",
     "author": "@Quenby03",
-    "homepage": "https://github.com/Quenby03/exteragram-voice-to-text",
+    "homepage": "https://github.com/Quenby03/maduro-exteragram-plugins",
 }
 
 FIELDS = (
