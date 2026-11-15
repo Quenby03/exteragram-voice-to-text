@@ -48,8 +48,29 @@ public final class FacePrivacyRuntime {
     private static String cachedProvider = "CPU";
     private static boolean cachedNnapi;
     private static int cachedThreads;
+    private static boolean nativeLibrariesLoaded;
 
     private FacePrivacyRuntime() { }
+
+    /**
+     * Load ONNX Runtime from private plugin storage before OrtEnvironment's
+     * static initializer calls System.loadLibrary(). Loading through this
+     * class keeps both libraries associated with the same DexClassLoader as
+     * the ONNX Java classes, and preloads the dependency before the JNI shim.
+     */
+    public static synchronized String loadNativeLibraries(String runtimePath, String jniPath) {
+        if (nativeLibrariesLoaded) return "ONNX native libraries already loaded";
+        File runtimeLibrary = new File(runtimePath);
+        File jniLibrary = new File(jniPath);
+        if (!runtimeLibrary.isFile() || !jniLibrary.isFile()) {
+            throw new UnsatisfiedLinkError("ONNX native library file is missing: "
+                    + runtimeLibrary.getAbsolutePath() + " / " + jniLibrary.getAbsolutePath());
+        }
+        System.load(runtimeLibrary.getAbsolutePath());
+        System.load(jniLibrary.getAbsolutePath());
+        nativeLibrariesLoaded = true;
+        return "ONNX native libraries loaded from plugin storage";
+    }
 
     /**
      * Entry point called by the Python plugin through DexClassLoader reflection.
